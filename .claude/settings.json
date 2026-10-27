@@ -1,7 +1,25 @@
 {
   "permissions": {
-    "allow": ["Bash(pytest:*)"],
-    "deny": ["Read(./.env)"],
-    "ask": ["Bash(git push:*)"]
+    "allow": [
+      "Bash(pytest:*)"
+    ],
+    "deny": [
+      "Read(./.env)"
+    ],
+    "ask": [
+      "Bash(git push:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/run_tests.py"
+          }
+        ]
+      }
+    ]
   }
 }

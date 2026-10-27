@@ -4,7 +4,10 @@ import streamlit as st
 
 from deals import (
     DealsLoadError,
+    DUE_SOON,
+    OVERDUE,
     filter_by_stages,
+    get_alerts,
     load_deals,
     save_deals,
     summarize_by_stage,
@@ -46,6 +49,12 @@ with st.sidebar:
             else:
                 deals = updated
                 st.success(f"{labels[deal_id]} のステージを「{new_stage}」に更新しました")
+
+alerts = get_alerts(deals, date.today())
+for label, show in ((OVERDUE, st.error), (DUE_SOON, st.warning)):
+    alert_deals = alerts[label]
+    if not alert_deals.empty:
+        show(f"{label}の案件が{len(alert_deals)}件あります: " + "、".join(alert_deals["name"]))
 
 st.subheader("ステージ別の集計")
 summary = summarize_by_stage(deals)

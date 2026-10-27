@@ -1,9 +1,10 @@
 """案件データの読み込み・絞り込み・集計。"""
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
-from stages import STAGES
+from stages import CLOSED_STAGES, STAGES
 
 DEALS_CSV = Path(__file__).resolve().parent / "data" / "deals.csv"
 
@@ -84,3 +85,47 @@ def update_stage(df, deal_id, new_stage, today):
 def save_deals(df, path=DEALS_CSV):
     """案件データを CSV(UTF-8、BOMなし)に保存する。書き込めない場合は OSError。"""
     df.to_csv(path, index=False, encoding="utf-8", lineterminator="\n")
+
+
+OVERDUE = "期限切れ"
+DUE_SOON = "7日以内"
+NOT_TARGET = "対象外"
+DUE_SOON_DAYS = 7
+
+
+def _to_date(value):
+    """期限の値(文字列・日付・空)を date にする。空は None。"""
+    if value is None or pd.isna(value) or value == "":
+        return None
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    return pd.Timestamp(value).date()
+
+
+def classify_deadline(due_date, stage, today=None):
+    """期限の状態を返す。戻り値は OVERDUE(期限切れ)、DUE_SOON(7日以内)、NOT_TARGET(対象外)。
+
+    残り日数 = 期限 - 基準日。0 未満が期限切れ、0 以上 7 以下が 7日以内。
+    受注・失注、または期限が空の案件は、期限が過去でも対象外。
+    基準日(today)を省略すると今日。
+    """
+    today = today or date.today()
+    due = _to_date(due_date)
+    if stage in CLOSED_STAGES or due is None:
+        return NOT_TARGET
+    remaining = (due - today).days
+    if remaining < 0:
+        return OVERDUE
+    if remaining <= DUE_SOON_DAYS:
+        return DUE_SOON
+    return NOT_TARGET
+
+
+def get_alerts(df, today=None):
+    """期限アラートの対象案件を返す。{OVERDUE: 案件, DUE_SOON: 案件} で、各々期限の早い順。"""
+    today = today or date.today()
+    status = df.apply(lambda r: classify_deadline(r["due_date"], r["stage"], today), axis=1)
+    return {
+        label: df[status == label].sort_values("due_date", kind="stable")
+        for label in (OVERDUE, DUE_SOON)
+    }
