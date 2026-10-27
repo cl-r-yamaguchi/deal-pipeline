@@ -1,6 +1,15 @@
+from datetime import date
+
 import streamlit as st
 
-from deals import DealsLoadError, filter_by_stages, load_deals, summarize_by_stage
+from deals import (
+    DealsLoadError,
+    filter_by_stages,
+    load_deals,
+    save_deals,
+    summarize_by_stage,
+    update_stage,
+)
 from stages import STAGES
 
 st.set_page_config(page_title="案件パイプライン管理", layout="wide")
@@ -13,6 +22,30 @@ try:
 except DealsLoadError as e:
     st.error(str(e))
     st.stop()
+
+with st.sidebar:
+    st.header("ステージ更新")
+    labels = dict(zip(deals["deal_id"], deals["deal_id"] + " " + deals["name"]))
+    deal_id = st.selectbox("案件", list(labels), format_func=labels.get)
+    current_stage = deals.loc[deals["deal_id"] == deal_id, "stage"].iloc[0]
+    new_stage = st.selectbox(
+        "新しいステージ",
+        STAGES,
+        index=STAGES.index(current_stage),
+        key=f"new_stage_{deal_id}",
+    )
+    if st.button("更新"):
+        if new_stage == current_stage:
+            st.info("変更がありません")
+        else:
+            updated = update_stage(deals, deal_id, new_stage, date.today())
+            try:
+                save_deals(updated)
+            except OSError as e:
+                st.error(f"保存に失敗しました: {e}")
+            else:
+                deals = updated
+                st.success(f"{labels[deal_id]} のステージを「{new_stage}」に更新しました")
 
 st.subheader("ステージ別の集計")
 summary = summarize_by_stage(deals)

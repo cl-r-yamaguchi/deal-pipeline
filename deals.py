@@ -59,3 +59,28 @@ def summarize_by_stage(df):
         "count": grouped["count"].astype(int).to_numpy(),
         "amount": grouped["sum"].astype(int).to_numpy(),
     })
+
+
+def update_stage(df, deal_id, new_stage, today):
+    """案件のステージと最終更新日を変えた、新しいデータを返す。元のデータは変更しない。
+
+    現在と同じステージのときは、最終更新日も変えない。
+    存在しない案件IDと、ステージ定義にないステージは ValueError。
+    """
+    if new_stage not in STAGES:
+        raise ValueError(f"不正なステージです: {new_stage}")
+    mask = df["deal_id"] == deal_id
+    if not mask.any():
+        raise ValueError(f"存在しない案件IDです: {deal_id}")
+
+    updated = df.copy()
+    if (updated.loc[mask, "stage"] == new_stage).all():
+        return updated
+    updated.loc[mask, "stage"] = new_stage
+    updated.loc[mask, "updated_at"] = today.isoformat()
+    return updated
+
+
+def save_deals(df, path=DEALS_CSV):
+    """案件データを CSV(UTF-8、BOMなし)に保存する。書き込めない場合は OSError。"""
+    df.to_csv(path, index=False, encoding="utf-8", lineterminator="\n")
